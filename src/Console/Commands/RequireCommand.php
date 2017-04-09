@@ -4,6 +4,9 @@ namespace LaravelRequire\Console\Commands;
 
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use LaravelRequire\Exceptions\InvalidPackageNameException;
+use LaravelRequire\Exceptions\ServiceProviderAlreadyRegisteredException;
+use LaravelRequire\Exceptions\ServiceProvidersVariableMissingException;
 
 class RequireCommand extends Command
 {
@@ -19,7 +22,7 @@ class RequireCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Automatically install a Laravel package using composer and then register its service provider';
+    protected $description = 'Install a Laravel package with composer and automatically register its service provider';
 
     /**
      * Create a new command instance.
@@ -39,6 +42,14 @@ class RequireCommand extends Command
     public function handle()
     {
         $packageName = $this->argument('package');
+
+        try {
+            $this->validatePackageName($packageName);
+        } catch(InvalidPackageNameException $e) {
+            $this->comment($e->getMessage());
+            return;
+        }
+
 
         $composerRequireCommand = $this->findComposerBinary() . " require $packageName";
         $process = new Process($composerRequireCommand, base_path(), null, null, null);
@@ -69,6 +80,7 @@ class RequireCommand extends Command
         } catch (ServiceProviderAlreadyRegisteredException $e) {
             $this->comment($e->getMessage());
         }
+
     }
 
     /**
@@ -83,6 +95,12 @@ class RequireCommand extends Command
         }
 
         return 'composer';
+    }
+
+    protected function validatePackageName($packageName)
+    {
+        if (preg_match('/[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-]+')==0)
+            throw new InvalidPackageNameException("Invalid package name provided: $packageName");
     }
 
     protected function getPackagePath($packageName)
@@ -127,7 +145,13 @@ class RequireCommand extends Command
 
     protected function generateServiceProviderRegistrationLine($namespace, $classname)
     {
-        return $namespace . '\\' . $classname . '::class,';
+        return "$namespace\\$classname::class,";
+    }
+
+    protected function extractBaseNamespace($namespace)
+    {
+        $parts = explode("$namespace\\");
+        return $parts[0];
     }
 
     protected function installServiceProvider($filename)
@@ -140,21 +164,24 @@ class RequireCommand extends Command
 
         $this->info("Installing $namespace\\$classname Service Provider...");
 
-        $data = file_get_contents(config_path() . '/app.php');
+        $config = file_get_contents(config_path() . '/app.php');
 
-        if (strpos($data, $regline) !== false) {
+        if (strpos($config, $regline) !== false) {
             throw new ServiceProviderAlreadyRegisteredException("Service provider $namespace\\$classname is already installed.");
         }
 
-        if (strpos($data, '//@@service-providers@@') === false) {
-            throw new ServiceProvidersVariableMissingException("The required variable '//@@service-providers@@' was not found in config/app.php.  Please add it to the end of the service providers array to use this command.");
+        $thisBaseNamespace = $this->extractBaseNamespace(__NAMESPACE__);
+        $thisServiceProviderLine = "$thisBaseNamespace\\${thisBaseNamespace}ServiceProvider::class,";
+
+        if (strpos($config, $thisServiceProviderLine) === false) {
+            throw new ServiceProvidersVariableMissingException("Could not find registration for the $thisBaseNamespace package in config/app.php.  Please add it to the end of the service providers array to use this command.");
         }
 
         $count = 0;
-        $data = str_replace('//@@service-providers@@', $regline . PHP_EOL . "        //@@service-providers@@".PHP_EOL, $data, $count);
+        $config = str_replace($thisServiceProviderLine, $thisServiceProviderLine . PHP_EOL . "        $regline".PHP_EOL, $config, $count);
 
         if ($count > 0) {
-            file_put_contents(config_path() . '/app.php', $data);
+            file_put_contents(config_path() . '/app.php', $config);
         }
 
         return ($count > 0);
