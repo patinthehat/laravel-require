@@ -1,0 +1,37 @@
+{
+    "name": "patinthehat/laravel-require",
+    "description": "Add a package with composer, and automatically registers the service provider.",
+    "keywords": ["framework", "laravel", "composer", "automation", "laravel-package"],
+    "license": "MIT",
+    "homepage": "https://www.permafrost-dev.com",
+    "authors": [
+        {
+            "name": "Patrick Organ",
+            "email": "patrick@permafrost-software.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.6.4",
+        "symfony/console": "~3.2",
+        "symfony/process": "~3.2"
+    },
+    "require-dev": {
+        "mockery/mockery": "~0.9.4",
+        "phpunit/phpunit": "~5.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "LaravelRequire\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+
+    "repositories": [
+        { "type":"path", "url":"/home/patrick/Development/php/projects/packages/patinthehat/laravel-require/" }
+    ]
+}
