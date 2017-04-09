@@ -28,9 +28,6 @@
         "sort-packages": true
     },
 
-    "repositories": [
-        { "type":"path", "url":"/home/patrick/Development/php/projects/packages/patinthehat/laravel-require/" }
-    ],
     
     "minimum-stability": "dev",
     "prefer-stable": true

@@ -99,7 +99,7 @@ class RequireCommand extends Command
 
     protected function validatePackageName($packageName)
     {
-        if (preg_match('/[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-]+')==0)
+        if (preg_match('/[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-]+/', $packageName)==0)
             throw new InvalidPackageNameException("Invalid package name provided: $packageName");
     }
 
@@ -150,7 +150,7 @@ class RequireCommand extends Command
 
     protected function extractBaseNamespace($namespace)
     {
-        $parts = explode("$namespace\\");
+        $parts = explode("\\", "$namespace\\");
         return $parts[0];
     }
 
