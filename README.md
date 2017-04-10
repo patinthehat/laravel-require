@@ -22,7 +22,15 @@ You will now have a `require:package {package-name}` command available in artisa
 ---
 #### Example Usage
 
-`php artisan require:package laracasts/flash` - this installs and registers the `flash` package from laracasts.
+```
+$ php artisan require:package laracasts/flash
+```
+This installs and registers the `flash` package from laracasts.
+
+```
+$ php artisan require:package laracasts/flash --scan
+``` 
+This will scan the contents of PHP files in the package in order to locate the Service Providers.  Use this method if `laravel-require` can't find the service provider for a package.
 
 ---
 #### License
