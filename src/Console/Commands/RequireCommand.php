@@ -10,6 +10,14 @@ use LaravelRequire\Exceptions\ServiceProvidersVariableMissingException;
 use LaravelRequire\Support\ServiceProviderInformation;
 use LaravelRequire\Support\FilenameFilter;
 use LaravelRequire\Support\PackageFilesFilterIterator;
+use LaravelRequire\Support\PackageFileLocator;
+use LaravelRequire\Support\PackageFileScanner;
+use LaravelRequire\Support\Rules\ServiceProviderRule;
+use LaravelRequire\Support\Rules\FacadeRule;
+use LaravelRequire\Support\Rules\MatchFilenameRuleContract;
+use LaravelRequire\Support\RegisteredItemInformation;
+use LaravelRequire\Support\ClassInformationParser;
+
 
 class RequireCommand extends Command
 {
@@ -18,14 +26,14 @@ class RequireCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'require:package {package} {--scan}';
+    protected $signature = 'require:package {package} {--register-only}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Install a Laravel package with composer and automatically register its service provider';
+    protected $description = 'Install a Laravel package with composer and automatically register its service providers and facades';
 
     /**
      * Create a new command instance.
@@ -45,9 +53,7 @@ class RequireCommand extends Command
     public function handle()
     {
         $packageName = $this->argument('package');
-        $scanFileContents = $this->hasOption('scan');
-
-        $testing = $this->hasOption('test') && $this->option('test') == '1';
+        $registerOnly = $this->option('registerOnly');
 
         try {
             $this->validatePackageName($packageName);
@@ -56,32 +62,32 @@ class RequireCommand extends Command
             return;
         }
 
+        if (!$registerOnly) {
+            $composerRequireCommand = $this->findComposerBinary() . " require $packageName";
+            $process = new Process($composerRequireCommand, base_path(), null, null, null);
 
-        $composerRequireCommand = $this->findComposerBinary() . " require $packageName";
-        $process = new Process($composerRequireCommand, base_path(), null, null, null);
+            if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
+                $process->setTty(true);
+            }
 
-        if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
-            $process->setTty(true);
+            $this->comment("> composer require $packageName...");
+
+            $process->run(function ($type, $line) {
+                $this->line($line);
+            });
         }
 
-        $this->comment("> composer require $packageName...");
-
-        $process->run(function ($type, $line) {
-            $this->line($line);
-        });
-
-
-        $splist = (array)$this->findPackageServiceProviderFile($packageName, $scanFileContents);
+        $splist = (array)$this->findPackageFilesToRegister($packageName);
         $providers = [];
 
         //found multiple service providers
         if (count($splist) > 1) {
 
             $selected = $this->choice(
-                            "Multiple Service Provider classes were found.\n".
+                            "Multiple Service Provider and/or Facade classes were located.\n".
                             " Please enter a comma-separated list of item numbers to register. Default:",
                             $splist, 0, null, true
-                        );
+            );
 
             foreach($selected as $class) {
                 foreach($splist as $info) {
@@ -90,9 +96,9 @@ class RequireCommand extends Command
                     }
                 }
             }
+
         } else {
-            //Didn't find more than one service provider
-            $providers = $splist;
+            $providers = $splist; //Didn't find more than one service provider/facade
         }
 
         foreach($providers as $provider) {
@@ -106,9 +112,9 @@ class RequireCommand extends Command
             }
 
             try {
-                $this->info("Registering Service Provider: ".$provider->qualifiedName()."...");
+                $this->info("Registering ".$provider->displayName().': '.$provider->qualifiedName()."...");
 
-                if ($this->installServiceProvider($provider)) {
+                if ($this->registerPackageItem($provider)) {
                     $this->info('...registered successfully.');
                 } else {
                     $this->comment('The package and/or service provider did not register or install correctly.');
@@ -119,7 +125,6 @@ class RequireCommand extends Command
                 $this->comment($e->getMessage());
             }
         } //end foreach(providers)
-
     }
 
     /**
@@ -142,91 +147,36 @@ class RequireCommand extends Command
             throw new InvalidPackageNameException("Invalid package name provided: $packageName");
     }
 
-    protected function getPackagePath($packageName)
+    protected function findPackageFilesToRegister($packageName)
     {
-        return base_path() . "/vendor/".strtolower($packageName);
-    }
+        $locator = new PackageFileLocator($packageName);
+        $scanner = new PackageFileScanner();
+        $files   = $locator->locatePackageFiles();
 
-    protected function findPackageServiceProviderFile($packageName, $scanFileContents)
-    {
-        $fileiterator   = new \RecursiveDirectoryIterator(
-                                    $this->getPackagePath($packageName),
-                                    \FilesystemIterator::KEY_AS_PATHNAME |
-                                    \FilesystemIterator::CURRENT_AS_FILEINFO |
-                                    \FilesystemIterator::SKIP_DOTS |
-                                    \FilesystemIterator::FOLLOW_SYMLINKS
-                                );
-        $iterator       = new \RecursiveIteratorIterator(
-                                    new PackageFilesFilterIterator($fileiterator),
-                                    \RecursiveIteratorIterator::SELF_FIRST
-                                );
-        $result = [];
-
-        foreach ($iterator as $file) {
-            $base = $file->getBasename();
-            $isPhpFile = $file->getExtension() == 'php';
-
-            if ($scanFileContents && $isPhpFile) {
-
-                $contents = file_get_contents($file);
-                $foundSerivceProviderClass = (preg_match('/\b([a-zA-Z0-9_]+)\s+extends\s+([a-zA-Z0-9_\\\]*ServiceProvider)\b/', $contents, $m)==1);
-
-                if ($foundSerivceProviderClass) {
-                    $info = new ServiceProviderInformation();
-                    $info->classname($m[1])
-                        ->filename($file)
-                        ->extends($m[2]);
-
-                    $namespace  = $this->extractNamespaceFromSource($contents);
-                    $info->namespace($namespace);
-                    $result[] = $info;
-                }
-            }
-
-            if (!$scanFileContents && $isPhpFile && preg_match('/^[a-zA-Z0-9_]*ServiceProvider\.php$/',$base)==1) {
-                $info = new ServiceProviderInformation();
-                $data = file_get_contents($file);
-
-                $classname  = $this->extractClassnameFromSource($data);
-                $namespace  = $this->extractNamespaceFromSource($data);
-
-                $result[] = $info->filename($file)
-                                ->classname($classname)
-                                ->namespace($namespace)
-                                ->extends('');
-            }
+        foreach ($files as $file) {
+            $spInfo = $scanner->scanFile($file->getPathname(), new ServiceProviderRule);
+            $fInfo  = $scanner->scanFile($file->getPathname(), new FacadeRule);
+            if ($fInfo !== false)
+                $result[] = $fInfo->type(RegisteredItemInformation::FACADE_TYPE);
+            if ($spInfo !== false)
+                $result[] = $spInfo->type(RegisteredItemInformation::SERVICE_PROVIDER_TYPE);
         }
 
         return $result;
     }
 
-    protected function extractClassnameFromSource($code)
+    protected function generateRegistrationLine(RegisteredItemInformation $item)
     {
-        if (preg_match('/\bclass[\s\r\n]*([a-zA-Z0-9_]+)\b/', $code, $m)==1) {
-            return $m[1];
+        switch ($item->type) {
+            case RegisteredItemInformation::SERVICE_PROVIDER_TYPE:
+                return $item->namespace."\\".$item->classname."::class,";
+
+            case RegisteredItemInformation::FACADE_TYPE:
+                return "'".(strlen($item->name)>0?$item->name:$item->classname)."' => ".$item->namespace.'\\'.$item->classname."::class,";
+
+            default:
+                return '';
         }
-
-        return false;
-    }
-
-    protected function extractNamespaceFromSource($code)
-    {
-        if (preg_match('/namespace\s*([^;]+);/', $code, $m)==1) {
-            return trim($m[1]);
-        }
-
-        return false;
-    }
-
-    protected function generateServiceProviderRegistrationLine(ServiceProviderInformation $provider)
-    {
-        return $provider->namespace."\\".$provider->classname."::class,";
-    }
-
-    protected function extractNamespacePart($namespace, $part = 1)
-    {
-        $parts = explode("\\", "$namespace\\");
-        return $parts[max([0,$part - 1])];
     }
 
     protected function readConfigurationFile()
@@ -239,28 +189,49 @@ class RequireCommand extends Command
         return file_put_contents(config_path() . '/app.php', $contents);
     }
 
-    protected function installServiceProvider(ServiceProviderInformation $provider)
+    protected function registerPackageItem(RegisteredItemInformation $item)
     {
-        $regline = $this->generateServiceProviderRegistrationLine($provider);
+        $regline = $this->generateRegistrationLine($item);
         $config  = $this->readConfigurationFile();
+        $parser  = new ClassInformationParser();
 
         if (strpos($config, $regline) !== false) {
-            throw new ServiceProviderAlreadyRegisteredException("Service provider ".$provider->qualifiedName()." is already registered.");
+            throw new ServiceProviderAlreadyRegisteredException($item->displayName().' '.$item->qualifiedName()." is already registered.");
         }
 
-        //search for our package's registration (laravel-require), so we know where to insert the new package registration
-        $thisBaseNamespace = $this->extractNamespacePart(__NAMESPACE__, 1);
-        $thisServiceProviderLine = "$thisBaseNamespace\\${thisBaseNamespace}ServiceProvider::class,";
+        if ($item->type == RegisteredItemInformation::SERVICE_PROVIDER_TYPE) {
+            //search for our package's registration (laravel-require), so we know where to insert the new package registration
+            $thisBaseNamespace = $parser->getTopLevelNamespace(__NAMESPACE__);
+            $thisServiceProviderLine = "$thisBaseNamespace\\${thisBaseNamespace}ServiceProvider::class,";
+            $searchLine = $thisServiceProviderLine;
 
-        if (strpos($config, $thisServiceProviderLine) === false) {
-            throw new ServiceProvidersVariableMissingException(
-                "Could not find registration for the $thisBaseNamespace package in config/app.php.  ".
-                "Please add it to the end of the service providers array to use this command."
-            );
+            if (strpos($config, $thisServiceProviderLine) === false) {
+                throw new ServiceProvidersVariableMissingException(
+                    "Could not find registration for the $thisBaseNamespace package in config/app.php.  ".
+                    "Please add it to the end of the service providers array to use this command."
+                );
+            }
+        }
+
+        if ($item->type == RegisteredItemInformation::FACADE_TYPE) {
+            $searchLine = "'aliases' => [";
+            //some Facades provided by packages are named 'Facade.php', so we will try
+            //to guess the correct Facade name based on its namespace;
+            if (strtolower($item->classname) == 'facade') {
+                $item->name = $parser->getNamespaceSection($item->namespace, 2);
+                //regenerate the registration line with the updated name
+                $regline = $this->generateRegistrationLine($item);
+            }
+
         }
 
         $count = 0;
-        $config = str_replace($thisServiceProviderLine, $thisServiceProviderLine . PHP_EOL . "        $regline".PHP_EOL, $config, $count);
+        $config = str_replace(
+                    $searchLine,
+                    $searchLine . PHP_EOL .
+                    "        $regline".PHP_EOL,
+                    $config, $count
+        );
 
         if ($count > 0) {
             $this->writeConfigurationFile($config);
