@@ -53,7 +53,7 @@ class RequireCommand extends Command
     public function handle()
     {
         $packageName = $this->argument('package');
-        $registerOnly = $this->option('registerOnly');
+        $registerOnly = $this->option('register-only');
 
         try {
             $this->validatePackageName($packageName);
