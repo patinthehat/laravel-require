@@ -25,17 +25,24 @@ class PackageFileScanner
                 $namespace  = $parser->getNamespaceFromSource($contents);
                 $info->filename($filename)
                     ->classname($classname)
-                    ->namespace($namespace);
+                    ->namespace($namespace)
+                    ->name($classname);
+
                 return $info;
             }
 
             $codeMatch = $rule->sourceCodeMatch($contents);
             if ($codeMatch!==false && !$info) {
+                $codeClassname = $codeMatch['class'];
+                $codeExtends = $codeMatch['extends'];
+                $codeName = $codeMatch['name'];
+                $codeType = $codeMatch['type'];
 
                 $info = new RegisteredItemInformation();
-                $info->classname($codeMatch[1])
+                $info->classname($codeClassname)
                     ->filename($filename)
-                    ->extends($codeMatch[2]);
+                    ->extends($codeExtends)
+                    ->name($codeName);
 
                 $namespace  = $parser->getNamespaceFromSource($contents);
                 $info->namespace($namespace);

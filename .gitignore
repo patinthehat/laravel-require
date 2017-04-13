@@ -1,6 +1,7 @@
 php_errors.log
 Standard/
-
+vendor/
+composer.lock
 
 # Created by https://www.gitignore.io/api/laravel,eclipse,linux
 

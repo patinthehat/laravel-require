@@ -17,6 +17,7 @@ use LaravelRequire\Support\Rules\FacadeRule;
 use LaravelRequire\Support\Rules\MatchFilenameRuleContract;
 use LaravelRequire\Support\RegisteredItemInformation;
 use LaravelRequire\Support\ClassInformationParser;
+use LaravelRequire\Support\FacadeClassLoader;
 
 
 class RequireCommand extends Command
@@ -26,7 +27,11 @@ class RequireCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'require:package {package} {--register-only}';
+    protected $signature = 'require:package {package} '.
+        '{--d | --dry-run : Simulate installation and registration of a package } '.
+        '{--r | --register-only : register package only, don\'t run `composer require`} '.
+        '{--c | --no-class-loader : don\'t use the smart facade class loader}'.
+        '';
 
     /**
      * The console command description.
@@ -54,6 +59,7 @@ class RequireCommand extends Command
     {
         $packageName = $this->argument('package');
         $registerOnly = $this->option('register-only');
+        $dryRun = $this->option('dry-run');
 
         try {
             $this->validatePackageName($packageName);
@@ -62,7 +68,11 @@ class RequireCommand extends Command
             return;
         }
 
-        if (!$registerOnly) {
+        if ($dryRun) {
+            $this->info('[dry-run] run composer require '.$packageName);
+        }
+
+        if (!$registerOnly && !$dryRun) {
             $composerRequireCommand = $this->findComposerBinary() . " require $packageName";
             $process = new Process($composerRequireCommand, base_path(), null, null, null);
 
@@ -77,47 +87,85 @@ class RequireCommand extends Command
             });
         }
 
-        $splist = (array)$this->findPackageFilesToRegister($packageName);
-        $providers = [];
+        $splist     = (array)$this->findPackageFilesToRegister($packageName);
+        $providers  = ['None'];
+        $facades    = ['None'];
+        $items      = [];
+
+        foreach($splist as $info) {
+            switch ($info->type) {
+                case RegisteredItemInformation::SERVICE_PROVIDER_TYPE:
+                    $providers[] = $info;
+                    break;
+                case RegisteredItemInformation::FACADE_TYPE:
+                    $facades[] = $info;
+                    break;
+                default:
+                    //nothing to do
+            }
+        }
 
         //found multiple service providers
-        if (count($splist) > 1) {
-
+        if (count($providers) == 1) {
+            $items[] = $providers[0];
+        } else {
             $selected = $this->choice(
-                            "Multiple Service Provider and/or Facade classes were located.\n".
+                            " Service Provider classes were located.\n".
                             " Please enter a comma-separated list of item numbers to register. Default:",
-                            $splist, 0, null, true
+                            $providers, 0, null, (count($providers) >= 1)
             );
 
             foreach($selected as $class) {
-                foreach($splist as $info) {
-                    if ($info->qualifiedName() == $class) {
-                        $providers[] = $info;
+                if (strtolower($class) == 'none')
+                    break;
+                foreach($providers as $provider) {
+                    if ($provider->qualifiedName() == $class) {
+                        $items[] = $provider;
                     }
                 }
             }
-
-        } else {
-            $providers = $splist; //Didn't find more than one service provider/facade
         }
 
-        foreach($providers as $provider) {
+        if (count($facades) == 1) {
+            $items[] = $facades[0];
+        } else {
+            $selected = $this->choice(
+                            " Facade classes were located.\n".
+                            " Please enter a comma-separated list of item numbers to register. Default:",
+                            $facades, 0, null, (count($facades) > 1)
+            );
+            foreach($selected as $class) {
+                if (strtolower($class) == 'none')
+                    break;
+                foreach($facades as $facade) {
+                     if ($facade->qualifiedName() == $class) {
+                         $items[] = $facade;
+                     }
+                }
+            }
+        }
 
-             if (!$provider->filename) {
+        foreach($items as $item) {
+
+             if (!$item->filename) {
                 $this->comment(
-                    "The service provider file for ".$provider->qualifiedName()." could not be found.  ".
+                    "The service provider file for ".$item->qualifiedName()." could not be found.  ".
                     "This package must be registered manually."
                 );
                 continue;
             }
 
             try {
-                $this->info("Registering ".$provider->displayName().': '.$provider->qualifiedName()."...");
+                $this->info("Registering ".$item->displayName().': '.$item->qualifiedName()."...");
 
-                if ($this->registerPackageItem($provider)) {
-                    $this->info('...registered successfully.');
-                } else {
-                    $this->comment('The package and/or service provider did not register or install correctly.');
+                if ($dryRun) {
+                    $this->info('[dry-run] registerPackageItem');
+                } elseif (!$dryRun) {
+                    if ($this->registerPackageItem($item)) {
+                        $this->info('...registered successfully.');
+                    } else {
+                        $this->comment('The package and/or service provider did not register or install correctly.');
+                    }
                 }
             } catch (ServiceProvidersVariableMissingException $e) {
                 $this->comment($e->getMessage());
@@ -125,6 +173,7 @@ class RequireCommand extends Command
                 $this->comment($e->getMessage());
             }
         } //end foreach(providers)
+        $this->info('Finished.');
     }
 
     /**
@@ -155,7 +204,7 @@ class RequireCommand extends Command
 
         foreach ($files as $file) {
             $spInfo = $scanner->scanFile($file->getPathname(), new ServiceProviderRule);
-            $fInfo  = $scanner->scanFile($file->getPathname(), new FacadeRule);
+            $fInfo  = $scanner->scanFile($file->getPathname(), new FacadeRule(new FacadeClassLoader));
             if ($fInfo !== false)
                 $result[] = $fInfo->type(RegisteredItemInformation::FACADE_TYPE);
             if ($spInfo !== false)
@@ -213,6 +262,7 @@ class RequireCommand extends Command
             }
         }
 
+
         if ($item->type == RegisteredItemInformation::FACADE_TYPE) {
             $searchLine = "'aliases' => [";
             //some Facades provided by packages are named 'Facade.php', so we will try
@@ -240,4 +290,29 @@ class RequireCommand extends Command
 
         return false;
     }
+
+    /**
+     * Get the console command arguments.
+     *
+     * @return array
+     */
+    protected function getArguments()
+    {
+        return [
+            ['package', InputArgument::REQUIRED, 'The name the package to install and register.'],
+        ];
+    }
+
+    /**
+     * Get the console command options.
+     *
+     * @return array
+     */
+    protected function getOptions()
+    {
+        return [
+            ['register-only', 'r', InputOption::VALUE_NONE, 'The terminal command that should be assigned.', 'command:name'],
+        ];
+    }
+
 }
