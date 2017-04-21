@@ -88,8 +88,8 @@ class RequireCommand extends Command
         }
 
         $splist     = (array)$this->findPackageFilesToRegister($packageName);
-        $providers  = ['None'];
-        $facades    = ['None'];
+        $providers  = [];
+        $facades    = [];
         $items      = [];
 
         foreach($splist as $info) {
@@ -107,53 +107,29 @@ class RequireCommand extends Command
 
         //found multiple service providers
         if (count($providers) == 1) {
-            $items[] = $providers[0];
+            $this->comment('No service providers found.');
         } else {
-            $selected = $this->choice(
-                            " Service Provider classes were located.\n".
-                            " Please enter a comma-separated list of item numbers to register. Default:",
-                            $providers, 0, null, (count($providers) >= 1)
-            );
-
-            foreach($selected as $class) {
-                if (strtolower($class) == 'none')
-                    break;
-                foreach($providers as $provider) {
-                    if ($provider->qualifiedName() == $class) {
-                        $items[] = $provider;
-                    }
+            foreach($providers as $provider) {
+                if ($this->confirm('Install service provider "'.$provider.'"? ')) {
+                    $items[] = $provider;
                 }
             }
         }
 
         if (count($facades) == 1) {
-            $items[] = $facades[0];
+            $this->comment('No facades found.');
         } else {
-            $selected = $this->choice(
-                            " Facade classes were located.\n".
-                            " Please enter a comma-separated list of item numbers to register. Default:",
-                            $facades, 0, null, (count($facades) > 1)
-            );
-            foreach($selected as $class) {
-                if (strtolower($class) == 'none')
-                    break;
-                foreach($facades as $facade) {
-                     if ($facade->qualifiedName() == $class) {
-                         $items[] = $facade;
-                     }
-                }
+            foreach($facades as $facade) {
+                if ($this->confirm("Install facade '$facade'?"))
+                    $items[] = $facade;
             }
         }
 
-        foreach($items as $item) {
 
-             if (!$item->filename) {
-                $this->comment(
-                    "The service provider file for ".$item->qualifiedName()." could not be found.  ".
-                    "This package must be registered manually."
-                );
+
+        foreach($items as $item) {
+            if (!$item || !$item->filename)
                 continue;
-            }
 
             try {
                 $this->info("Registering ".$item->displayName().': '.$item->qualifiedName()."...");
