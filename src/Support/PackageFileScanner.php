@@ -5,24 +5,29 @@ namespace LaravelRequire\Support;
 use LaravelRequire\Support\ClassInformationParser;
 use LaravelRequire\Support\ServiceProviderInformation;
 
+/**
+ * Handles scanning the contents of a file.
+ */
 class PackageFileScanner
 {
 
     public function scanFile($filename, $rule)
     {
         $contents = file_get_contents($filename);
-        $rules = [$rule];
+        $rules = [
+            $rule
+        ];
         $info = false;
-        $parser = new ClassInformationParser;
+        $parser = new ClassInformationParser();
 
-        foreach($rules as $rule) {
+        foreach ($rules as $rule) {
 
             $filenameMatch = $rule->filenameMatch($filename);
-            if ($filenameMatch!==false) {
+            if ($filenameMatch !== false) {
                 $info = new RegisteredItemInformation();
 
-                $classname  = $parser->getClassnameFromSource($contents);
-                $namespace  = $parser->getNamespaceFromSource($contents);
+                $classname = $parser->getClassnameFromSource($contents);
+                $namespace = $parser->getNamespaceFromSource($contents);
                 $info->filename($filename)
                     ->classname($classname)
                     ->namespace($namespace)
@@ -32,7 +37,7 @@ class PackageFileScanner
             }
 
             $codeMatch = $rule->sourceCodeMatch($contents);
-            if ($codeMatch!==false && !$info) {
+            if ($codeMatch !== false && !$info) {
                 $codeClassname = $codeMatch['class'];
                 $codeExtends = $codeMatch['extends'];
                 $codeName = $codeMatch['name'];
@@ -44,7 +49,7 @@ class PackageFileScanner
                     ->extends($codeExtends)
                     ->name($codeName);
 
-                $namespace  = $parser->getNamespaceFromSource($contents);
+                $namespace = $parser->getNamespaceFromSource($contents);
                 $info->namespace($namespace);
                 return $info;
             }

@@ -2,7 +2,12 @@
 
 namespace LaravelRequire\Exceptions;
 
-class ServiceProvidersVariableMissingException extends \Exception
+
+/**
+ * thrown when an expected service provider var is missing.
+ *
+ */
+ class ServiceProvidersVariableMissingException extends \Exception
 {
 
 }

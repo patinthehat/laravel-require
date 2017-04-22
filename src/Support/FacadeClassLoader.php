@@ -2,15 +2,27 @@
 
 namespace LaravelRequire\Support;
 
+/**
+ * Load a file that contains a laravel facade, and replace the classname with a random
+ * classname, then load the resulting code and call the getFacadeAccessor() method to
+ * reliably determine the Facade's actual name.
+ *
+ */
 class FacadeClassLoader
 {
+    /**
+     * @var array
+     */
     protected $tempFiles = [];
 
-    public function __construct()
-    {
-        //
-    }
-
+    /**
+     * The main method for this class.  Load a processed version of the Facade file,
+     * extracting the actual name from the code.
+     * Returns false on error.
+     * @param string $filename
+     * @param string $isContent
+     * @return boolean|string
+     */
     public function load($filename, $isContent = false)
     {
         if ($isContent) {
@@ -50,6 +62,15 @@ class FacadeClassLoader
         return $this;
     }
 
+    /**
+     * Process the contents of the original Facade class, removing namespace &
+     * uses.  Renames the existing classname with a dynamic
+     * one. Makes all methods public, rename getFacadeAccessor()
+     * to getFacadeName().
+     * @param string $loaderClassname
+     * @param string $contents
+     * @return string
+     */
     protected function processFacadeFileContents($loaderClassname, $contents)
     {
         $temp = $contents;
@@ -63,6 +84,12 @@ class FacadeClassLoader
         return $temp;
     }
 
+    /**
+     * Stores the dynamically generated temp classname for use with loading
+     * the Facade code.
+     * @param string $refresh
+     * @return string
+     */
     protected function getLoaderClassname($refresh = false)
     {
         static $classname = '';
@@ -72,11 +99,20 @@ class FacadeClassLoader
         return $classname;
     }
 
+    /**
+     * Return the dynamically generated filename for loading the Facade code.
+     * @param string $classname
+     * @return string
+     */
     protected function getLoaderFilename($classname)
     {
         return "${classname}.laravel-require.facade-loader.php";
     }
 
+    /**
+     * Remove the temp file that was used to load the facade code.
+     * @return \LaravelRequire\Support\FacadeClassLoader
+     */
     protected function cleanup()
     {
         foreach($this->tempFiles as $file) {
