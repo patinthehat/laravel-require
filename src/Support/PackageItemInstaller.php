@@ -35,12 +35,14 @@ class PackageItemInstaller
         $result = [];
         if (count($data) == 1) {
             $this->command->comment(is_null($emptyMessage) ? "No ${type}s found." : null);
-        } else {
-            foreach ($data as $item) {
-                if ($this->command->confirm("Install $type '$item'?"))
-                    $result[] = $item;
-            }
+            return $result;
         }
+
+        foreach ($data as $item) {
+            if ($this->command->confirm("Install $type '$item'?"))
+                $result[] = $item;
+        }
+
         return $result;
     }
 

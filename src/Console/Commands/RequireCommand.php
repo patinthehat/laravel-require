@@ -5,6 +5,7 @@ use Illuminate\Console\Command;
 use LaravelRequire\Exceptions\InvalidPackageNameException;
 use LaravelRequire\Exceptions\ServiceProviderAlreadyRegisteredException;
 use LaravelRequire\Exceptions\ServiceProvidersVariableMissingException;
+use LaravelRequire\Support\ClassInformationParser;
 use LaravelRequire\Support\LaravelPackage;
 use LaravelRequire\Support\PackageItemInstaller;
 use LaravelRequire\Support\Packages;
@@ -20,7 +21,10 @@ class RequireCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'require:package {package} ' . '{--d | --dry-run : Simulate installation and registration of a package } ' . '{--r | --register-only : register package only, don\'t run `composer require`} ' . '{--c | --no-class-loader : don\'t use the smart facade class loader}' . '';
+    protected $signature = 'require:package {package} ' .
+    '{--d | --dry-run : Simulate installation and registration of a package } ' .
+    '{--r | --register-only : register package only, don\'t run `composer require`} ' .
+    '{--c | --no-class-loader : don\'t use the smart facade class loader}' . '';
 
     /**
      * The console command description.
@@ -117,7 +121,11 @@ class RequireCommand extends Command
                 if ($dryRun) {
                     $this->info('[dry-run] registerPackageItem');
                 } elseif (! $dryRun) {
-                    if ($item->packages->registerPackageItem($item, $thisBaseNamespace)) {
+                    $p = new LaravelPackage;
+                    $parser = new ClassInformationParser();
+                    $thisBaseNamespace = $parser->getTopLevelNamespace(__NAMESPACE__);
+
+                    if ($p->registerPackageItem($item, $thisBaseNamespace)) {
                         $this->info('...registered successfully.');
                     } else {
                         $this->comment('The package and/or service provider did not register or install correctly.');

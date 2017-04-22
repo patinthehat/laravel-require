@@ -4,6 +4,7 @@ namespace LaravelRequire\Support;
 use LaravelRequire\Exceptions\ServiceProviderAlreadyRegisteredException;
 use LaravelRequire\Exceptions\ServiceProvidersVariableMissingException;
 use LaravelRequire\Support\RegisteredItemInformation;
+use LaravelRequire\Support\ProjectConfiguration;
 
 class LaravelPackage
 {
@@ -31,8 +32,9 @@ class LaravelPackage
      */
     public function registerPackageItem(RegisteredItemInformation $item, $thisBaseNamespace)
     {
+        $projectConfig = new ProjectConfiguration();
         $regline = $this->generateRegistrationLine($item);
-        $config = $this->config->readConfigurationFile();
+        $config = ($projectConfig)->readConfigurationFile();
         $parser = new ClassInformationParser();
 
         if (strpos($config, $regline) !== false) {
@@ -68,7 +70,7 @@ class LaravelPackage
         $config = str_replace($searchLine, $searchLine . PHP_EOL . "        $regline" . PHP_EOL, $config, $count);
 
         if ($count > 0) {
-            $this->config->writeConfigurationFile($config);
+            $projectConfig->writeConfigurationFile($config);
             return true;
         }
 
