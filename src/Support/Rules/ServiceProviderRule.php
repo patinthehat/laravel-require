@@ -14,7 +14,13 @@ class ServiceProviderRule implements MatchFilenameRuleContract, MatchSourceCodeR
      */
     public function filenameMatch($filename)
     {
-       return (preg_match('/^[a-zA-Z0-9_]*ServiceProvider\.php$/', basename($filename))==1);
+        //UserVerificationServiceProvider.php
+
+       $result = (preg_match('/[a-zA-Z0-9_]*ServiceProvider\.php/', basename($filename))==1);
+       if (!$result)
+           $result = ends_with(basename($filename), 'ServiceProvider.php');
+
+       return $result;
     }
 
     /**
@@ -26,7 +32,7 @@ class ServiceProviderRule implements MatchFilenameRuleContract, MatchSourceCodeR
      */
     public function sourceCodeMatch($contents)
     {
-        if (preg_match('/\b([a-zA-Z0-9_]+)\s+extends\s+([a-zA-Z0-9_\\\]*ServiceProvider)\b/', $contents, $m)==1) {
+        if (preg_match('/([a-zA-Z0-9_]+)\s+extends\s+([a-zA-Z0-9_\\\]*ServiceProvider)/', $contents, $m)==1) {
             //return $m;
             return ['class'=>$m[1], 'extends'=>$m[2], 'name'=>$m[1], 'type'=>'serviceprovider'];
         }

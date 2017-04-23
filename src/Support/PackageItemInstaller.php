@@ -33,7 +33,7 @@ class PackageItemInstaller
     public function install($data, $type, $emptyMessage = null)
     {
         $result = [];
-        if (count($data) == 1) {
+        if (count($data) == 0) {
             $this->command->comment(is_null($emptyMessage) ? "No ${type}s found." : null);
             return $result;
         }

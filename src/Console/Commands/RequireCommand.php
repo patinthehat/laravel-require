@@ -56,10 +56,16 @@ class RequireCommand extends Command
      */
     public function handle()
     {
+        $packageVers = null;
         $packageName = $this->argument('package');
         $registerOnly = $this->option('register-only');
         $dryRun = $this->option('dry-run');
 
+        if (strpos($packageName,':')!==false) {
+            $parts = explode(':', $packageName);
+            $packageName = $parts[0];
+            $packageVers = $parts[1];
+        }
         try {
             Packages::validatePackageName($packageName);
         } catch (InvalidPackageNameException $e) {
@@ -74,6 +80,8 @@ class RequireCommand extends Command
         if (! $registerOnly && ! $dryRun) {
 
             $composerRequireCommand = $this->findComposerBinary() . " require $packageName";
+            if (! is_null($packageVers))
+                $composerRequireCommand .= ':'.$packageVers;
 
             $process = new Process($composerRequireCommand, base_path(), null, null, null);
 

@@ -28,8 +28,8 @@ class Packages
             $fInfo = $scanner->scanFile($file->getPathname(), new FacadeRule(new FacadeClassLoader()));
             if ($fInfo !== false)
                 $result[] = $fInfo->type(RegisteredItemInformation::FACADE_TYPE);
-                if ($spInfo !== false)
-                    $result[] = $spInfo->type(RegisteredItemInformation::SERVICE_PROVIDER_TYPE);
+            if ($spInfo !== false)
+                $result[] = $spInfo->type(RegisteredItemInformation::SERVICE_PROVIDER_TYPE);
         }
 
         return $result;
