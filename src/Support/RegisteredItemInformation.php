@@ -7,17 +7,23 @@ namespace LaravelRequire\Support;
  */
 class RegisteredItemInformation
 {
-    const UNDEFINED_TYPE        = 0;
-    const FACADE_TYPE           = 1;
+    const UNDEFINED_TYPE = 0;
+    const FACADE_TYPE = 1;
     const SERVICE_PROVIDER_TYPE = 2;
 
-    public $type        = self::UNDEFINED_TYPE;
-    public $package     = '';
-    public $classname   = '';
-    public $extends     = '';
-    public $namespace   = '';
-    public $filename    = '';
-    public $name        = '';
+    public $type = self::UNDEFINED_TYPE;
+
+    public $package = '';
+
+    public $classname = '';
+
+    public $extends = '';
+
+    public $namespace = '';
+
+    public $filename = '';
+
+    public $name = '';
 
     public function __construct(int $type = self::UNDEFINED_TYPE)
     {
@@ -36,6 +42,7 @@ class RegisteredItemInformation
 
     /**
      * String representation is the fully-qualified classname.
+     *
      * @return string
      */
     public function __toString()
@@ -45,6 +52,7 @@ class RegisteredItemInformation
 
     /**
      * Get the fully-qualified classname
+     *
      * @return string
      */
     public function qualifiedName()
@@ -66,7 +74,7 @@ class RegisteredItemInformation
 
     public function extends($value)
     {
-        $this->extends= $value;
+        $this->extends = $value;
         return $this;
     }
 

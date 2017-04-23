@@ -1,9 +1,10 @@
 <?php
 
-namespace LaravelRequire\Support;
+namespace LaravelRequire\Support\Packages;
 
 use LaravelRequire\Support\ClassInformationParser;
 use LaravelRequire\Support\ServiceProviderInformation;
+use LaravelRequire\Support\RegisteredItemInformation;
 
 /**
  * Handles scanning the contents of a file.
@@ -11,6 +12,11 @@ use LaravelRequire\Support\ServiceProviderInformation;
 class PackageFileScanner
 {
 
+    /**
+     * @param string $filename
+     * @param unknown $rule
+     * @return boolean|\LaravelRequire\Support\RegisteredItemInformation|\LaravelRequire\Support\RegisteredItemInformation
+     */
     public function scanFile($filename, $rule)
     {
         $contents = file_get_contents($filename);

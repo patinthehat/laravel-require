@@ -6,9 +6,9 @@ use LaravelRequire\Exceptions\InvalidPackageNameException;
 use LaravelRequire\Exceptions\ServiceProviderAlreadyRegisteredException;
 use LaravelRequire\Exceptions\ServiceProvidersVariableMissingException;
 use LaravelRequire\Support\ClassInformationParser;
-use LaravelRequire\Support\LaravelPackage;
-use LaravelRequire\Support\PackageItemInstaller;
-use LaravelRequire\Support\Packages;
+use LaravelRequire\Support\Packages\LaravelPackage;
+use LaravelRequire\Support\Packages\PackageItemInstaller;
+use LaravelRequire\Support\Packages\Packages;
 use LaravelRequire\Support\ProjectConfiguration;
 use LaravelRequire\Support\RegisteredItemInformation;
 use Symfony\Component\Process\Process;
@@ -119,6 +119,8 @@ class RequireCommand extends Command
         $items2 = $installer->install($facades, 'Facade', null);
         $items = array_merge($items, $items2);
 
+        $installCounter = 0;
+        $failedCounter = 0;
         foreach ($items as $item) {
             if (! $item || ! $item->filename)
                 continue;
@@ -128,15 +130,18 @@ class RequireCommand extends Command
 
                 if ($dryRun) {
                     $this->info('[dry-run] registerPackageItem');
-                } elseif (! $dryRun) {
+                }
+                if (! $dryRun) {
                     $p = new LaravelPackage;
                     $parser = new ClassInformationParser();
                     $thisBaseNamespace = $parser->getTopLevelNamespace(__NAMESPACE__);
 
                     if ($p->registerPackageItem($item, $thisBaseNamespace)) {
                         $this->info('...registered successfully.');
+                        $installCounter++;
                     } else {
-                        $this->comment('The package and/or service provider did not register or install correctly.');
+                        $this->comment('The package and/or service provider did not register or install correctly, or it is not a Laravel package.');
+                        $failedCounter++;
                     }
                 }
             } catch (ServiceProvidersVariableMissingException $e) {
@@ -145,7 +150,7 @@ class RequireCommand extends Command
                 $this->comment($e->getMessage());
             }
         } // end foreach(providers)
-        $this->info('Finished.');
+        $this->info('Finished. '.$installCounter.' items registered'.($failedCounter > 0 ? ", $failedCounter failed." : '.'));
     }
 
     /**

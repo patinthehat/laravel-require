@@ -1,10 +1,12 @@
 <?php
-namespace LaravelRequire\Support;
+
+namespace LaravelRequire\Support\Packages;
 
 use LaravelRequire\Exceptions\ServiceProviderAlreadyRegisteredException;
 use LaravelRequire\Exceptions\ServiceProvidersVariableMissingException;
 use LaravelRequire\Support\RegisteredItemInformation;
 use LaravelRequire\Support\ProjectConfiguration;
+use LaravelRequire\Support\ClassInformationParser;
 
 class LaravelPackage
 {

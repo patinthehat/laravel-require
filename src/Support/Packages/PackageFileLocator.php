@@ -1,6 +1,6 @@
 <?php
 
-namespace LaravelRequire\Support;
+namespace LaravelRequire\Support\Packages;
 
 /**
  * Handles the locating of files that might contain a service provider or facade.
@@ -45,12 +45,10 @@ class PackageFileLocator
         //only allow php files
         //TODO Implement FilenameFilter class here
         foreach ($iterator as $file) {
-
             if ($file->getExtension() == 'php')
                 $result[] = $file;
         }
 
-        print_r($result);
         return $result;
     }
 

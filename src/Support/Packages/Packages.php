@@ -1,13 +1,15 @@
 <?php
-namespace LaravelRequire\Support;
 
-use LaravelRequire\Support\PackageFileLocator;
-use LaravelRequire\Support\PackageFileScanner;
+namespace LaravelRequire\Support\Packages;
+
+
+use LaravelRequire\Support\Packages\PackageFileLocator;
+use LaravelRequire\Support\Packages\PackageFileScanner;
 use LaravelRequire\Exceptions\InvalidPackageNameException;
 use LaravelRequire\Support\RegisteredItemInformation;
 use LaravelRequire\Support\Rules\FacadeRule;
 use LaravelRequire\Support\Rules\ServiceProviderRule;
-
+use LaravelRequire\Support\FacadeClassLoader;
 
 class Packages
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace LaravelRequire\Support;
+namespace LaravelRequire\Support\Packages;
 
 use LaravelRequire\Support\RegEx;
 
