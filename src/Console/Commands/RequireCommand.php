@@ -12,6 +12,7 @@ use LaravelRequire\Support\Packages\Packages;
 use LaravelRequire\Support\ProjectConfiguration;
 use LaravelRequire\Support\RegisteredItemInformation;
 use Symfony\Component\Process\Process;
+use LaravelRequire\Support\ExternalShellCommand;
 
 class RequireCommand extends Command
 {
@@ -78,22 +79,13 @@ class RequireCommand extends Command
         }
 
         if (! $registerOnly && ! $dryRun) {
-
             $composerRequireCommand = $this->findComposerBinary() . " require $packageName";
             if (! is_null($packageVers))
                 $composerRequireCommand .= ':'.$packageVers;
 
-            $process = new Process($composerRequireCommand, base_path(), null, null, null);
-
-            if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
-                $process->setTty(true);
-            }
-
             $this->comment("> composer require $packageName...");
-
-            $process->run(function ($type, $line) {
-                $this->line($line);
-            });
+            $cmd = new ExternalShellCommand($composerRequireCommand);
+            $cmd->run();
         }
 
         $splist = (array) Packages::findPackageFilesToRegister($packageName);
@@ -131,6 +123,7 @@ class RequireCommand extends Command
                 if ($dryRun) {
                     $this->info('[dry-run] registerPackageItem');
                 }
+
                 if (! $dryRun) {
                     $p = new LaravelPackage;
                     $parser = new ClassInformationParser();
